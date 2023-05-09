@@ -23,14 +23,12 @@ import screenFragment from './shaders/screen.frag';
 import screenVertex from './shaders/screen.vert';
 
 const _bounds = [];
-const _colliders = [
-  new BoxGeometry(1, 1, 1),
-  new CylinderGeometry(0.5, 0.5, 1),
-  new IcosahedronGeometry(0.5, 2),
-].map((geometry) => {
-  geometry.computeBoundingSphere();
-  return new Mesh(geometry);
-});
+const _colliders = [new BoxGeometry(1, 1, 1), new CylinderGeometry(0.5, 0.5, 1), new IcosahedronGeometry(0.5, 2)].map(
+  (geometry) => {
+    geometry.computeBoundingSphere();
+    return new Mesh(geometry);
+  },
+);
 const _frustum = new Frustum();
 const _position = new Vector3();
 const _projection = new Matrix4();
@@ -179,7 +177,9 @@ class Raymarcher extends Mesh {
 
   copy(source) {
     const { userData } = this;
-    const { userData: { blending, conetracing, envMap, envMapIntensity, metalness, layers, resolution, roughness } } = source;
+    const {
+      userData: { blending, conetracing, envMap, envMapIntensity, metalness, layers, resolution, roughness },
+    } = source;
     userData.blending = blending;
     userData.conetracing = conetracing;
     userData.envMap = envMap;
@@ -192,7 +192,11 @@ class Raymarcher extends Mesh {
   }
 
   dispose() {
-    const { material, geometry, userData: { raymarcher, target } } = this;
+    const {
+      material,
+      geometry,
+      userData: { raymarcher, target },
+    } = this;
     material.dispose();
     geometry.dispose();
     raymarcher.material.dispose();
@@ -202,17 +206,19 @@ class Raymarcher extends Mesh {
   }
 
   onBeforeRender(renderer, scene, camera) {
-    const { userData: { layers, resolution, raymarcher, target } } = this;
-    const { material: { defines, uniforms } } = raymarcher;
+    const {
+      userData: { layers, resolution, raymarcher, target },
+    } = this;
+    const {
+      material: { defines, uniforms },
+    } = raymarcher;
 
     camera.getWorldDirection(uniforms.cameraDirection.value);
     uniforms.cameraFar.value = camera.far;
     uniforms.cameraFov.value = MathUtils.degToRad(camera.fov);
     uniforms.cameraNear.value = camera.near;
-    
-    _frustum.setFromProjectionMatrix(
-      _projection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
-    );
+
+    _frustum.setFromProjectionMatrix(_projection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
     camera.getWorldPosition(_position);
     const sortedLayers = layers
       .reduce((layers, entities, layer) => {
@@ -243,7 +249,7 @@ class Raymarcher extends Mesh {
         }
         return layers;
       }, [])
-      .sort(({ distance: a }, { distance: b }) => defines.CONETRACING ? (b - a) : (a - b));
+      .sort(({ distance: a }, { distance: b }) => (defines.CONETRACING ? b - a : a - b));
 
     renderer.getDrawingBufferSize(_size).multiplyScalar(resolution).floor();
     if (target.width !== _size.x || target.height !== _size.y) {
@@ -289,19 +295,23 @@ class Raymarcher extends Mesh {
   }
 
   raycast(raycaster, intersects) {
-    const { userData: { layers } } = this;
-    layers.forEach((layer, layerId) => layer.forEach((entity, entityId) => {
-      const entityIntersects = [];
-      Raymarcher.getEntityCollider(entity).raycast(raycaster, entityIntersects);
-      entityIntersects.forEach((intersect) => {
-        intersect.entity = entity;
-        intersect.entityId = entityId;
-        intersect.layer = layer;
-        intersect.layerId = layerId;
-        intersect.object = this;
-        intersects.push(intersect);
-      });
-    }));
+    const {
+      userData: { layers },
+    } = this;
+    layers.forEach((layer, layerId) =>
+      layer.forEach((entity, entityId) => {
+        const entityIntersects = [];
+        Raymarcher.getEntityCollider(entity).raycast(raycaster, entityIntersects);
+        entityIntersects.forEach((intersect) => {
+          intersect.entity = entity;
+          intersect.entityId = entityId;
+          intersect.layer = layer;
+          intersect.layerId = layerId;
+          intersect.object = this;
+          intersects.push(intersect);
+        });
+      }),
+    );
   }
 
   static cloneEntity({ color, operation, position, rotation, scale, shape }) {

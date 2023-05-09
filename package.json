@@ -3,7 +3,7 @@
   "author": "Daniel Esteban Nombela",
   "version": "0.2.21",
   "license": "MIT",
-  "module": "module.js",
+  "module": "dist/index.js",
   "files": [
     "LICENSE",
     "module.js",
@@ -27,5 +27,8 @@
     "watch": "npm run build -- -w",
     "serve": "sirv --dev --port 8080 --quiet .",
     "start": "run-p watch serve"
+  },
+  "dependencies": {
+    "typescript": "^5.0.4"
   }
 }

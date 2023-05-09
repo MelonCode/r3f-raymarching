@@ -4,7 +4,7 @@ export default {
   external: ['three'],
   input: path.join(__dirname, 'src', 'raymarcher.js'),
   output: {
-    file: path.join(__dirname, 'module.js'),
+    file: path.join(__dirname, 'dist', 'index.js'),
     format: 'esm',
   },
   plugins: [
@@ -14,10 +14,10 @@ export default {
         if (/\.(frag|glsl|vert)$/g.test(id)) {
           return {
             code: `export default ${JSON.stringify(code)};`,
-            map: { mappings: '' }
+            map: { mappings: '' },
           };
         }
-      }
+      },
     },
   ],
   watch: { clearScreen: false },
