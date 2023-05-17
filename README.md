@@ -1,16 +1,26 @@
-[three-raymarcher](https://github.com/danielesteban/three-raymarcher)
-[![npm-version](https://img.shields.io/npm/v/three-raymarcher.svg)](https://www.npmjs.com/package/three-raymarcher)
-==
+# ⚠️ This library is under heavy development
+
+## More info and documentation will come soon
+
+### Purpose of fork
+
+The goal of this fork and library is to create more convinient and elegant way of describing scenes rendered with raymarching approach
+
+Be sure to check parent repo
+
+Original repo description lies below, however it may be outdated.
+
+---
 
 ## Examples
 
- * Animation: [glitch.com/~three-raymarcher](https://glitch.com/edit/#!/three-raymarcher)
- * Interactive: [glitch.com/~three-raymarcher-interactive](https://glitch.com/edit/#!/three-raymarcher-interactive)
- * Physics: [glitch.com/~three-raymarcher-physics](https://glitch.com/edit/#!/three-raymarcher-physics)
- * Reactive: [glitch.com/~three-raymarcher-reactive](https://glitch.com/edit/#!/three-raymarcher-reactive)
- * Skinning: [glitch.com/~three-raymarcher-skinning](https://glitch.com/edit/#!/three-raymarcher-skinning)
- * Transform: [glitch.com/~three-raymarcher-transform](https://glitch.com/edit/#!/three-raymarcher-transform)
- * react-three-fiber: [codesandbox.io/s/three-raymarcher-3xdor](https://codesandbox.io/s/three-raymarcher-3xdor)
+- Animation: [glitch.com/~three-raymarcher](https://glitch.com/edit/#!/three-raymarcher)
+- Interactive: [glitch.com/~three-raymarcher-interactive](https://glitch.com/edit/#!/three-raymarcher-interactive)
+- Physics: [glitch.com/~three-raymarcher-physics](https://glitch.com/edit/#!/three-raymarcher-physics)
+- Reactive: [glitch.com/~three-raymarcher-reactive](https://glitch.com/edit/#!/three-raymarcher-reactive)
+- Skinning: [glitch.com/~three-raymarcher-skinning](https://glitch.com/edit/#!/three-raymarcher-skinning)
+- Transform: [glitch.com/~three-raymarcher-transform](https://glitch.com/edit/#!/three-raymarcher-transform)
+- react-three-fiber: [codesandbox.io/s/three-raymarcher-3xdor](https://codesandbox.io/s/three-raymarcher-3xdor)
 
 ## Installation
 
@@ -21,9 +31,7 @@ npm i three-raymarcher
 ## Basic usage
 
 ```js
-import {
-  Color, PerspectiveCamera, Quaternion, Scene, Vector3, WebGLRenderer
-} from 'three';
+import { Color, PerspectiveCamera, Quaternion, Scene, Vector3, WebGLRenderer } from 'three';
 import Raymarcher from 'three-raymarcher';
 
 const aspect = window.innerWidth / window.innerHeight;
@@ -37,7 +45,7 @@ const raymarcher = new Raymarcher({
   layers: [
     [
       {
-        color: new Color(0xFF0000),
+        color: new Color(0xff0000),
         operation: Raymarcher.operations.union,
         position: new Vector3(-1.5, 0, -4),
         rotation: new Quaternion(0, 0, 0, 1),
@@ -47,7 +55,7 @@ const raymarcher = new Raymarcher({
     ],
     [
       {
-        color: new Color(0x00FF00),
+        color: new Color(0x00ff00),
         operation: Raymarcher.operations.union,
         position: new Vector3(0, 0, -4),
         rotation: new Quaternion(0, 0, 0, 1),
@@ -57,21 +65,19 @@ const raymarcher = new Raymarcher({
     ],
     [
       {
-        color: new Color(0x0000FF),
+        color: new Color(0x0000ff),
         operation: Raymarcher.operations.union,
         position: new Vector3(1.5, 0, -4),
         rotation: new Quaternion(0, 0, 0, 1),
         scale: new Vector3(1, 1, 1),
         shape: Raymarcher.shapes.sphere,
-      }
+      },
     ],
   ],
 });
 scene.add(raymarcher);
 
-renderer.setAnimationLoop(() => (
-  renderer.render(scene, camera)
-));
+renderer.setAnimationLoop(() => renderer.render(scene, camera));
 ```
 
 ## Lighting
@@ -81,8 +87,8 @@ three-raymarcher uses indirect PBR lighting only. Direct light support (Directio
 Assign a CubeUVMap texture to `userData.envMap` and control it's intensity with `userData.envMapIntensity`:
 
 ```js
-(new RGBELoader()).load('environment.hdr', (texture) => {
-  raymarcher.userData.envMap = (new PMREMGenerator(renderer)).fromEquirectangular(texture).texture;
+new RGBELoader().load('environment.hdr', (texture) => {
+  raymarcher.userData.envMap = new PMREMGenerator(renderer).fromEquirectangular(texture).texture;
   raymarcher.userData.envMapIntensity = 0.7;
 });
 ```
