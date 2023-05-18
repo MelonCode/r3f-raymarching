@@ -1,34 +1,76 @@
 {
-  "name": "three-raymarcher",
-  "author": "Daniel Esteban Nombela",
-  "version": "0.2.21",
+  "version": "0.1.0",
   "license": "MIT",
-  "module": "dist/index.js",
+  "main": "dist/index.js",
+  "types": "src/index.d.ts",
+  "type": "module",
   "files": [
-    "LICENSE",
-    "module.js",
-    "package.json",
-    "README.md"
+    "dist",
+    "src"
   ],
-  "devDependencies": {
-    "npm-run-all": "^4.1.5",
-    "rollup": "^2.75.7",
-    "sirv-cli": "^2.0.2"
-  },
-  "peerDependencies": {
-    "three": ">=0.142.0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/danielesteban/three-raymarcher"
+  "engines": {
+    "node": ">=10"
   },
   "scripts": {
-    "build": "rollup -c rollup.config.js",
-    "watch": "npm run build -- -w",
-    "serve": "sirv --dev --port 8080 --quiet .",
-    "start": "run-p watch serve"
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "size": "size-limit",
+    "analyze": "size-limit --why"
   },
-  "dependencies": {
-    "typescript": "^5.0.4"
+  "peerDependencies": {
+    "react": ">=16"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "yarn lint"
+    }
+  },
+  "name": "r3f-raymarching",
+  "author": "MelonCode",
+  "module": "dist/index.esm.js",
+  "exports": {
+    ".": {
+      "import": "./dist/my-lib.js",
+      "require": "./dist/my-lib.umd.cjs"
+    }
+  },
+  "typeRoots": [
+    "node_modules/@types",
+    "src/@types"
+  ],
+  "size-limit": [
+    {
+      "path": "dist/index.cjs.production.min.js",
+      "limit": "10 KB"
+    },
+    {
+      "path": "dist/index.esm.js",
+      "limit": "10 KB"
+    }
+  ],
+  "devDependencies": {
+    "@react-three/drei": "^9.68.3",
+    "@react-three/fiber": "^8.13.0",
+    "@rollup/plugin-commonjs": "^25.0.0",
+    "@rollup/plugin-node-resolve": "^15.0.2",
+    "@rollup/plugin-typescript": "^11.1.1",
+    "@size-limit/preset-small-lib": "^8.2.4",
+    "@types/react": "^18.2.6",
+    "@types/react-dom": "^18.2.4",
+    "@types/three": "^0.152.0",
+    "@vitejs/plugin-react": "^4.0.0",
+    "husky": "^8.0.3",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "rollup-plugin-peer-deps-external": "^2.2.4",
+    "rollup-plugin-terser": "^7.0.2",
+    "size-limit": "^8.2.4",
+    "three": "^0.152.2",
+    "tslib": "^2.5.0",
+    "typescript": "^5.0.4",
+    "vite": "^4.3.7",
+    "vite-plugin-dts": "^2.3.0",
+    "vite-plugin-glsl": "^1.1.2",
+    "vite-tsconfig-paths": "^4.2.0"
   }
 }

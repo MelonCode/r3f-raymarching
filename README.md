@@ -1,14 +1,20 @@
 # ⚠️ This library is under heavy development
 
-## More info and documentation will come soon
+## 📚More info and documentation will come soon
 
-### Purpose of fork
+### 💡 Purpose of fork
 
 The goal of this fork and library is to create more convinient and elegant way of describing scenes rendered with raymarching approach
 
-Be sure to check parent repo
+Be sure to check original library [three-raymarcher by Daniel Esteban](https://github.com/danielesteban/three-raymarcher) ☝🏻
 
-Original repo description lies below, however it may be outdated.
+## Usage
+
+// TODO
+
+---
+
+## Original repo description lies below, however it may be outdated. 🚩
 
 ---
 
@@ -31,8 +37,15 @@ npm i three-raymarcher
 ## Basic usage
 
 ```js
-import { Color, PerspectiveCamera, Quaternion, Scene, Vector3, WebGLRenderer } from 'three';
-import Raymarcher from 'three-raymarcher';
+import {
+  Color,
+  PerspectiveCamera,
+  Quaternion,
+  Scene,
+  Vector3,
+  WebGLRenderer,
+} from "three";
+import Raymarcher from "three-raymarcher";
 
 const aspect = window.innerWidth / window.innerHeight;
 const camera = new PerspectiveCamera(70, aspect, 0.01, 1000);
@@ -87,8 +100,10 @@ three-raymarcher uses indirect PBR lighting only. Direct light support (Directio
 Assign a CubeUVMap texture to `userData.envMap` and control it's intensity with `userData.envMapIntensity`:
 
 ```js
-new RGBELoader().load('environment.hdr', (texture) => {
-  raymarcher.userData.envMap = new PMREMGenerator(renderer).fromEquirectangular(texture).texture;
+new RGBELoader().load("environment.hdr", (texture) => {
+  raymarcher.userData.envMap = new PMREMGenerator(renderer).fromEquirectangular(
+    texture
+  ).texture;
   raymarcher.userData.envMapIntensity = 0.7;
 });
 ```
@@ -118,7 +133,7 @@ if (hit) {
     hit.entityId, // The index of the intersected entity
     hit.entity, // A reference to the intersected entity
     hit.layerId, // The index of the intersected entity layer
-    hit.layer, // A reference to the intersected entity layer
+    hit.layer // A reference to the intersected entity layer
   );
 }
 ```
