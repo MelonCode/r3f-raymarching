@@ -15,6 +15,16 @@ import {
   Vector2,
   Vector3,
   WebGLRenderTarget,
+  Quaternion,
+  Color,
+  Camera,
+  Scene,
+  WebGLRenderer,
+  PerspectiveCamera,
+  Raycaster,
+  Intersection,
+  Texture,
+  CubeTexture,
 } from 'three'
 import lighting from './shaders/lighting.glsl'
 import raymarcherFragment from './shaders/raymarcher.frag'
@@ -22,7 +32,34 @@ import raymarcherVertex from './shaders/raymarcher.vert'
 import screenFragment from './shaders/screen.frag'
 import screenVertex from './shaders/screen.vert'
 
-const _bounds = []
+export interface Entity {
+  color: Color
+  operation: number
+  position: Vector3
+  rotation: Quaternion
+  scale: Vector3
+  shape: number
+}
+
+export interface Layer extends Array<Entity> {}
+
+export interface SortedLayer {
+  bounds: Sphere
+  distance: number
+  entities: Entity[]
+}
+
+// TODO: Temporary type until raycasting detection is refactored
+export interface SDFIntersection extends Intersection {
+  entity: Entity
+  entityId: number
+  layer: Layer
+  layerId: number
+}
+
+export type EnvMap = Texture | CubeTexture | null
+
+const _bounds: Array<Sphere> = []
 const _colliders = [
   new BoxGeometry(1, 1, 1),
   new CylinderGeometry(0.5, 0.5, 1),
@@ -37,7 +74,33 @@ const _projection = new Matrix4()
 const _size = new Vector2()
 const _sphere = new Sphere()
 
-class Raymarcher extends Mesh {
+class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
+  override userData: {
+    blending: number
+    conetracing: boolean
+    envMap: EnvMap
+    envMapIntensity: number
+    metalness: number
+    roughness: number
+    layers: Layer[]
+    raymarcher: Mesh<PlaneGeometry, RawShaderMaterial>
+    resolution: number
+    target: WebGLRenderTarget
+  }
+
+  declare material: RawShaderMaterial
+
+  static shapes = {
+    box: 0,
+    capsule: 1,
+    sphere: 2,
+  }
+
+  static operations = {
+    union: 0,
+    substraction: 1,
+  }
+
   constructor({
     blending = 0.5,
     conetracing = true,
@@ -95,15 +158,16 @@ class Raymarcher extends Mesh {
         roughness: { value: roughness },
         numEntities: { value: 0 },
         entities: {
-          value: [],
-          properties: {
-            color: {},
-            operation: {},
-            position: {},
-            rotation: {},
-            scale: {},
-            shape: {},
-          },
+          value: [
+            {
+              color: new Vector3(),
+              operation: Raymarcher.operations.union,
+              position: new Vector3(),
+              rotation: new Quaternion(1, 0, 0, 0),
+              scale: new Vector3(1, 1, 1),
+              shape: Raymarcher.shapes.box,
+            },
+          ],
         },
       },
     })
@@ -182,7 +246,7 @@ class Raymarcher extends Mesh {
     }
   }
 
-  copy(source) {
+  copy(source: Raymarcher) {
     const { userData } = this
     const {
       userData: {
@@ -221,7 +285,13 @@ class Raymarcher extends Mesh {
     target.texture.dispose()
   }
 
-  onBeforeRender(renderer, scene, camera) {
+  onBeforeRender = (
+    renderer: WebGLRenderer,
+    _scene: Scene,
+    _camera: Camera
+  ) => {
+    const camera = _camera as PerspectiveCamera // TODO Validation?
+
     const {
       userData: { layers, resolution, raymarcher, target },
     } = this
@@ -254,7 +324,7 @@ class Raymarcher extends Mesh {
             geometry: { boundingSphere },
             matrixWorld,
           } = Raymarcher.getEntityCollider(entity)
-          _sphere.copy(boundingSphere).applyMatrix4(matrixWorld)
+          _sphere.copy(boundingSphere!).applyMatrix4(matrixWorld)
           if (bounds.isEmpty()) {
             bounds.copy(_sphere)
           } else {
@@ -269,7 +339,7 @@ class Raymarcher extends Mesh {
           })
         }
         return layers
-      }, [])
+      }, [] as Array<SortedLayer>)
       .sort(({ distance: a }, { distance: b }) =>
         defines.CONETRACING ? b - a : a - b
       )
@@ -316,33 +386,43 @@ class Raymarcher extends Mesh {
     renderer.xr.enabled = currentXrEnabled
     renderer.setClearAlpha(currentClearAlpha)
     renderer.setRenderTarget(currentRenderTarget)
-    if (camera.viewport) renderer.state.viewport(camera.viewport)
+
+    // What is this for?
+    // if (camera.viewport) renderer.state.viewport(camera.viewport)
   }
 
-  raycast(raycaster, intersects) {
+  raycast(raycaster: Raycaster, intersects: SDFIntersection[]) {
     const {
       userData: { layers },
     } = this
     layers.forEach((layer, layerId) =>
       layer.forEach((entity, entityId) => {
-        const entityIntersects = []
+        const entityIntersects: Intersection[] = []
         Raymarcher.getEntityCollider(entity).raycast(
           raycaster,
           entityIntersects
         )
         entityIntersects.forEach((intersect) => {
-          intersect.entity = entity
-          intersect.entityId = entityId
-          intersect.layer = layer
-          intersect.layerId = layerId
+          const sdfIntersect = intersect as SDFIntersection
+          sdfIntersect.entity = entity
+          sdfIntersect.entityId = entityId
+          sdfIntersect.layer = layer
+          sdfIntersect.layerId = layerId
           intersect.object = this
-          intersects.push(intersect)
+          intersects.push(sdfIntersect)
         })
       })
     )
   }
 
-  static cloneEntity({ color, operation, position, rotation, scale, shape }) {
+  static cloneEntity({
+    color,
+    operation,
+    position,
+    rotation,
+    scale,
+    shape,
+  }: Entity): Entity {
     return {
       color: color.clone(),
       operation,
@@ -353,7 +433,7 @@ class Raymarcher extends Mesh {
     }
   }
 
-  static getEntityCollider({ position, rotation, scale, shape }) {
+  static getEntityCollider({ position, rotation, scale, shape }: Entity) {
     const collider = _colliders[shape]
     collider.position.copy(position)
     collider.quaternion.copy(rotation)
@@ -365,23 +445,12 @@ class Raymarcher extends Mesh {
     return collider
   }
 
-  static getLayerBounds(layer) {
+  static getLayerBounds(layer: number): Sphere {
     if (!_bounds[layer]) {
       _bounds[layer] = new Sphere()
     }
     return _bounds[layer].makeEmpty()
   }
-}
-
-Raymarcher.operations = {
-  union: 0,
-  substraction: 1,
-}
-
-Raymarcher.shapes = {
-  box: 0,
-  capsule: 1,
-  sphere: 2,
 }
 
 export default Raymarcher

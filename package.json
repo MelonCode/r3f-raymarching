@@ -1,5 +1,5 @@
 {
-  "version": "0.1.0",
+  "version": "0.3.0",
   "license": "MIT",
   "main": "dist/index.js",
   "types": "src/index.d.ts",
@@ -30,8 +30,9 @@
   "module": "dist/index.esm.js",
   "exports": {
     ".": {
-      "import": "./dist/my-lib.js",
-      "require": "./dist/my-lib.umd.cjs"
+      "import": "./dist/index.js",
+      "require": "./dist/index.umd.cjs",
+      "types": "./dist/index.d.ts"
     }
   },
   "typeRoots": [
