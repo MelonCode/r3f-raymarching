@@ -1,6 +1,5 @@
 import {
   BoxGeometry,
-  BufferGeometry,
   Camera,
   CapsuleGeometry,
   Color,
@@ -12,12 +11,10 @@ import {
   Group,
   IcosahedronGeometry,
   Intersection,
-  Material,
   MathUtils,
   Matrix4,
   Mesh,
   MeshBasicMaterial,
-  NormalBufferAttributes,
   Object3D,
   PerspectiveCamera,
   PlaneGeometry,
@@ -386,9 +383,9 @@ class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
             value.push({
               color: entity.color,
               operation: entity.operation,
-              position: entity.position,
-              rotation: entity.quaternion,
-              scale: entity.scale,
+              position: entity.getWorldPosition(new Vector3()),
+              rotation: entity.getWorldQuaternion(new Quaternion()),
+              scale: entity.getWorldScale(new Vector3()),
               shape: entity.shape,
             })
           }
@@ -451,17 +448,15 @@ class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
       uniforms.bounds.value.radius = bounds.radius
       uniforms.numEntities.value = entities.size
       let i = 0
-      entities.forEach(
-        ({ color, operation, position, quaternion, scale, shape }) => {
-          const uniform = uniforms.entities.value[i++]
-          uniform.color.copy(color)
-          uniform.operation = operation
-          uniform.position.copy(position)
-          uniform.rotation.copy(quaternion)
-          uniform.scale.copy(scale)
-          uniform.shape = shape
-        }
-      )
+      entities.forEach((entity) => {
+        const uniform = uniforms.entities.value[i++]
+        uniform.color.copy(entity.color)
+        uniform.operation = entity.operation
+        uniform.shape = entity.shape
+        entity.getWorldPosition(uniform.position)
+        entity.getWorldQuaternion(uniform.rotation)
+        entity.getWorldScale(uniform.scale)
+      })
       renderer.render(raymarcher, camera)
     })
 

@@ -88,6 +88,14 @@ const Scene = () => {
   const raymarcherRef = useRef<Raymarcher>(null)
   const meshRef = useRef<Mesh>(null)
 
+  const frame = useFrame((state, delta) => {
+    if (meshRef.current) {
+      meshRef.current.rotation.y += delta * 0.5
+
+      console.log(meshRef.current.matrixWorld)
+    }
+  })
+
   return (
     <>
       <raymarcher
@@ -96,13 +104,12 @@ const Scene = () => {
         userData-envMap={envMap}
         userData-envMapIntensity={0.6}
         userData-roughness={1.0}
-        userData-blending={0.35}
+        userData-blending={0.0}
       >
-        <sdfLayer>
-          <sdfCapsule color={'green'} />
+        <sdfLayer ref={meshRef}>
+          <sdfBox color={'green'} />
           <sdfCapsule
             color={'green'}
-            operation={Operation.SUBSTRACTION}
             position-x={1}
             scale-y={2}
           />
