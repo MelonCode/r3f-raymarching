@@ -1,3 +1,3 @@
-import Raymarching from './lib/raymarching'
+import Raymarcher from './lib/raymarching'
 export * from './lib/raymarching'
-export default Raymarching
+export default Raymarcher

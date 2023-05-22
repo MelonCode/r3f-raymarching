@@ -37,11 +37,48 @@ uniform int numEntities;
 uniform vec2 resolution;
 uniform float roughness;
 
+#define TAU (2*PI)
+#define PHI (sqrt(5)*0.5 + 0.5)
 #define saturate(a) clamp(a, 0.0, 1.0)
 #define texture2D texture
 #include <cube_uv_reflection_fragment>
 #include <encodings_pars_fragment>
 #include <lighting>
+
+// Sign function that doesn't return 0
+// float sgn(float x) {
+// 	return (x<0)?-1:1;
+// }
+
+// vec2 sgn(vec2 v) {
+// 	return vec2((v.x<0)?-1:1, (v.y<0)?-1:1);
+// }
+
+// // Maximum/minumum elements of a vector
+// float vmax(vec2 v) {
+// 	return max(v.x, v.y);
+// }
+
+// float vmax(vec3 v) {
+// 	return max(max(v.x, v.y), v.z);
+// }
+
+// float vmax(vec4 v) {
+// 	return max(max(v.x, v.y), max(v.z, v.w));
+// }
+
+// float vmin(vec2 v) {
+// 	return min(v.x, v.y);
+// }
+
+// float vmin(vec3 v) {
+// 	return min(min(v.x, v.y), v.z);
+// }
+
+// float vmin(vec4 v) {
+// 	return min(min(v.x, v.y), min(v.z, v.w));
+// }
+
 
 vec3 applyQuaternion(const in vec3 p, const in vec4 q) {
   return p + 2.0 * cross(-q.xyz, cross(-q.xyz, p) + q.w * p);
@@ -101,6 +138,14 @@ SDF opSmoothSubtraction(const in SDF a, const in SDF b, const in float k) {
   );
 }
 
+SDF opSmoothIntersection(const in SDF a, const in SDF b, const in float k) {
+  float h = saturate(0.5 + 0.5 * (b.distance - a.distance) / k);
+  return SDF(
+    mix(a.distance, b.distance, h) + k*h*(1.0-h),
+    mix(a.color, b.color, h)
+  );
+}
+
 SDF map(const in vec3 p) {
   SDF scene = sdEntity(p, entities[0]);
   for (int i = 1, l = min(numEntities, MAX_ENTITIES); i < l; i++) {
@@ -111,6 +156,9 @@ SDF map(const in vec3 p) {
         break;
       case 1:
         scene = opSmoothSubtraction(scene, sdEntity(p, entities[i]), blending);
+        break;
+      case 2:
+        scene = opSmoothIntersection(scene, sdEntity(p, entities[i]), blending);
         break;
     }
   }

@@ -73,5 +73,8 @@
     "vite-plugin-dts": "^2.3.0",
     "vite-plugin-glsl": "^1.1.2",
     "vite-tsconfig-paths": "^4.2.0"
+  },
+  "dependencies": {
+    "@react-three/postprocessing": "^2.11.4"
   }
 }

@@ -1,69 +1,114 @@
-import { OrbitControls, Stats } from '@react-three/drei'
-import { Canvas, extend, useFrame, useThree } from '@react-three/fiber'
-import { useCallback, useMemo, useRef } from 'react'
-import { Color, PMREMGenerator, Quaternion, Vector3 } from 'three'
+import { OrbitControls, Stats, TransformControls } from '@react-three/drei'
+import {
+  Canvas,
+  Object3DNode,
+  ThreeEvent,
+  extend,
+  useFrame,
+  useThree,
+} from '@react-three/fiber'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import THREE, {
+  BoxGeometry,
+  Color,
+  Euler,
+  LineBasicMaterial,
+  Mesh,
+  MeshBasicMaterial,
+  PMREMGenerator,
+  Quaternion,
+  Vector3,
+} from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
-import { Raymarcher } from '../src'
-import type { Entity } from '../src/lib/raymarching'
+import Raymarcher, {
+  Entity,
+  Operation,
+  SDFBox,
+  SDFCapsule,
+  SDFLayer,
+  SDFSphere,
+} from '../src'
 import React from 'react'
+import { WireframeMaterial } from '@react-three/drei/materials/WireframeMaterial'
+import {
+  Selection,
+  Select,
+  EffectComposer,
+  Outline,
+} from '@react-three/postprocessing'
 
-extend({ Raymarcher })
+extend({
+  Raymarcher,
+  SdfSphere: SDFSphere,
+  SdfBox: SDFBox,
+  SdfCapsule: SDFCapsule,
+  SdfLayer: SDFLayer,
+})
 
-const { operations, shapes } = Raymarcher
+// Add types to ThreeElements elements so primitives pick up on it
+declare module '@react-three/fiber' {
+  interface ThreeElements {
+    raymarcher: Object3DNode<Raymarcher, typeof Raymarcher>
+    sdfBox: Object3DNode<SDFBox, typeof SDFBox>
+    sdfSphere: Object3DNode<SDFSphere, typeof SDFSphere>
+    sdfCapsule: Object3DNode<SDFCapsule, typeof SDFCapsule>
+    sdfLayer: Object3DNode<SDFLayer, typeof SDFLayer>
+  }
+}
+
+function SelectableBox(props) {
+  const ref = useRef<SDFSphere>(null)
+  const [color, setColor] = useState<string>('orangered')
+
+  return (
+    <>
+      <TransformControls object={ref.current!}>
+        <sdfSphere
+          ref={ref}
+          operation={Operation.SUBSTRACTION}
+          color="limegreen"
+          position={[-4.2, 1.6, 1.4]}
+          scale={[0.5, 0.5, 0.5]}
+        />
+      </TransformControls>
+    </>
+  )
+}
 
 const Scene = () => {
-  const layers = useRef(
-    Array.from({ length: 5 }, (v, l) => {
-      const position = new Vector3(-5 + l * 2.5, ((l % 2) - 0.25) * 1.5, -l % 2)
-      const scale = new Vector3().setScalar(2 + Math.random())
-      return [
-        {
-          color: new Color(Math.random() * 0xffffff),
-          operation: operations.union,
-          position,
-          rotation: new Quaternion(0, 0, 0, 1),
-          scale,
-          shape: shapes.box,
-        },
-        {
-          color: new Color(Math.random() * 0xffffff),
-          operation: l % 2 ? operations.union : operations.substraction,
-          position: position.clone(),
-          rotation: new Quaternion(0, 0, 0, 1),
-          scale: scale.clone(),
-          shape: shapes.sphere,
-        },
-      ]
-    })
-  )
-  useFrame(({ clock }) => {
-    layers.current.forEach((layer, l) =>
-      layer.forEach((entity, e) => {
-        entity.scale.setScalar(
-          1.5 +
-            Math.sin(clock.oldTime / 1000 + l * 1.5) * 0.5 +
-            e * (0.125 + (l % 2 ? e * 0.5 : 0))
-        )
-      })
-    )
-  })
   const { gl } = useThree()
   const envMap = useMemo(
     () => new PMREMGenerator(gl).fromScene(new RoomEnvironment()).texture,
     [gl]
   )
-  const randomize = useCallback((obj: { entity: Entity }) => {
-    console.log(obj)
-    obj.entity.color.setHex(Math.random() * 0xffffff)
+  const randomize = useCallback((event: ThreeEvent<MouseEvent>) => {
+    // obj.entity.color.setHex(Math.random() * 0xffffff)
   }, [])
+
+  const raymarcherRef = useRef<Raymarcher>(null)
+  const meshRef = useRef<Mesh>(null)
+
   return (
-    <raymarcher
-      onClick={randomize}
-      userData-layers={layers.current}
-      userData-envMap={envMap}
-      userData-envMapIntensity={0.6}
-      userData-roughness={0.0}
-    />
+    <>
+      <raymarcher
+        ref={raymarcherRef}
+        onClick={randomize}
+        userData-envMap={envMap}
+        userData-envMapIntensity={0.6}
+        userData-roughness={1.0}
+        userData-blending={0.35}
+      >
+        <sdfLayer>
+          <sdfCapsule color={'green'} />
+          <sdfCapsule
+            color={'green'}
+            operation={Operation.SUBSTRACTION}
+            position-x={1}
+            scale-y={2}
+          />
+        </sdfLayer>
+      </raymarcher>
+    </>
   )
 }
 
@@ -74,7 +119,7 @@ export default function App() {
       dpr={1}
       className="canvas"
     >
-      <OrbitControls />
+      <OrbitControls makeDefault />
       <Scene />
       <Stats />
     </Canvas>
