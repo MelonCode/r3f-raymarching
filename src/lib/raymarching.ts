@@ -134,28 +134,86 @@ export enum Operation {
 }
 
 class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
-  override userData: {
-    blending: number
-    conetracing: boolean
-    envMap: EnvMap
-    envMapIntensity: number
-    metalness: number
-    roughness: number
-    layers: Layer[]
-    raymarcher: Mesh<PlaneGeometry, RawShaderMaterial>
-    resolution: number
-    target: WebGLRenderTarget
+  resolution: number
+  declare material: RawShaderMaterial
+  raymarcher: Mesh<PlaneGeometry, RawShaderMaterial>
+  target: WebGLRenderTarget
+
+  private get uniforms() {
+    return this.raymarcher.material.uniforms
+  }
+  private get defines() {
+    return this.raymarcher.material.defines
   }
 
-  declare material: RawShaderMaterial
+  get blending() {
+    return this.raymarcher.material.uniforms.blending.value
+  }
+  set blending(value) {
+    this.uniforms.blending.value = value
+  }
+  get conetracing() {
+    return this.defines.CONETRACING
+  }
+  set conetracing(value) {
+    if (this.defines.CONETRACING !== !!value) {
+      this.raymarcher.material.defines.CONETRACING = !!value
+      this.raymarcher.material.transparent = this.material.transparent = !!value
+      this.raymarcher.material.needsUpdate = true
+    }
+  }
+  get envMap() {
+    return this.uniforms.envMap.value
+  }
+  set envMap(value) {
+    this.uniforms.envMap.value = value
+    if (this.defines.ENVMAP_TYPE_CUBE_UV !== !!value) {
+      this.defines.ENVMAP_TYPE_CUBE_UV = !!value
+      this.material.needsUpdate = true
+    }
+    if (value) {
+      const maxMip = Math.log2(value.image.height) - 2
+      const texelWidth = 1.0 / (3 * Math.max(Math.pow(2, maxMip), 7 * 16))
+      const texelHeight = 1.0 / value.image.height
+      if (this.defines.CUBEUV_MAX_MIP !== `${maxMip}.0`) {
+        this.defines.CUBEUV_MAX_MIP = `${maxMip}.0`
+        this.material.needsUpdate = true
+      }
+      if (this.defines.CUBEUV_TEXEL_WIDTH !== texelWidth) {
+        this.defines.CUBEUV_TEXEL_WIDTH = texelWidth
+        this.material.needsUpdate = true
+      }
+      if (this.defines.CUBEUV_TEXEL_HEIGHT !== texelHeight) {
+        this.defines.CUBEUV_TEXEL_HEIGHT = texelHeight
+        this.material.needsUpdate = true
+      }
+    }
+  }
+  get envMapIntensity() {
+    return this.uniforms.envMapIntensity.value
+  }
+  set envMapIntensity(value) {
+    this.uniforms.envMapIntensity.value = value
+  }
+  get metalness() {
+    return this.uniforms.metalness.value
+  }
+  set metalness(value) {
+    this.uniforms.metalness.value = value
+  }
+  get roughness() {
+    return this.uniforms.roughness.value
+  }
+  set roughness(value) {
+    this.uniforms.roughness.value = value
+  }
 
   constructor({
     blending = 0.5,
-    conetracing = true,
     envMap = null,
+    conetracing = true,
     envMapIntensity = 1,
     metalness = 0,
-    layers = [],
     resolution = 1,
     roughness = 1,
   } = {}) {
@@ -165,7 +223,8 @@ class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
     const target = new WebGLRenderTarget(1, 1, {
       depthTexture: new DepthTexture(1, 1, UnsignedShortType),
     })
-    const screen = new RawShaderMaterial({
+
+    const screenMaterial = new RawShaderMaterial({
       glslVersion: GLSL3,
       transparent: !!conetracing,
       vertexShader: screenVertex,
@@ -176,7 +235,9 @@ class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
       },
     })
 
-    super(plane, screen)
+    super(plane, screenMaterial)
+
+    this.target = target
     const material = new RawShaderMaterial({
       glslVersion: GLSL3,
       transparent: !!conetracing,
@@ -220,78 +281,13 @@ class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
         },
       },
     })
-    const { defines, uniforms } = material
-    this.userData = {
-      get blending() {
-        return uniforms.blending.value
-      },
-      set blending(value) {
-        uniforms.blending.value = value
-      },
-      get conetracing() {
-        return defines.CONETRACING
-      },
-      set conetracing(value) {
-        if (defines.CONETRACING !== !!value) {
-          defines.CONETRACING = !!value
-          material.transparent = screen.transparent = !!value
-          material.needsUpdate = true
-        }
-      },
-      get envMap() {
-        return uniforms.envMap.value
-      },
-      set envMap(value) {
-        uniforms.envMap.value = value
-        if (defines.ENVMAP_TYPE_CUBE_UV !== !!value) {
-          defines.ENVMAP_TYPE_CUBE_UV = !!value
-          material.needsUpdate = true
-        }
-        if (value) {
-          const maxMip = Math.log2(value.image.height) - 2
-          const texelWidth = 1.0 / (3 * Math.max(Math.pow(2, maxMip), 7 * 16))
-          const texelHeight = 1.0 / value.image.height
-          if (defines.CUBEUV_MAX_MIP !== `${maxMip}.0`) {
-            defines.CUBEUV_MAX_MIP = `${maxMip}.0`
-            material.needsUpdate = true
-          }
-          if (defines.CUBEUV_TEXEL_WIDTH !== texelWidth) {
-            defines.CUBEUV_TEXEL_WIDTH = texelWidth
-            material.needsUpdate = true
-          }
-          if (defines.CUBEUV_TEXEL_HEIGHT !== texelHeight) {
-            defines.CUBEUV_TEXEL_HEIGHT = texelHeight
-            material.needsUpdate = true
-          }
-        }
-      },
-      get envMapIntensity() {
-        return uniforms.envMapIntensity.value
-      },
-      set envMapIntensity(value) {
-        uniforms.envMapIntensity.value = value
-      },
-      get metalness() {
-        return uniforms.metalness.value
-      },
-      set metalness(value) {
-        uniforms.metalness.value = value
-      },
-      get roughness() {
-        return uniforms.roughness.value
-      },
-      set roughness(value) {
-        uniforms.roughness.value = value
-      },
-      layers,
-      raymarcher: new Mesh(plane, material),
-      resolution,
-      target,
-    }
-    this.matrixAutoUpdate = this.userData.raymarcher.matrixAutoUpdate = false
-    this.frustumCulled = this.userData.raymarcher.frustumCulled = false
+
+    this.resolution = resolution
+    this.raymarcher = new Mesh(plane, material)
+    this.matrixAutoUpdate = this.raymarcher.matrixAutoUpdate = false
+    this.frustumCulled = this.raymarcher.frustumCulled = false
     if (envMap) {
-      this.userData.envMap = envMap
+      this.envMap = envMap
     }
   }
 
@@ -327,17 +323,13 @@ class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
   }
 
   dispose() {
-    const {
-      material,
-      geometry,
-      userData: { raymarcher, target },
-    } = this
+    const { material, geometry } = this
     material.dispose()
     geometry.dispose()
-    raymarcher.material.dispose()
-    target.dispose()
-    target.depthTexture.dispose()
-    target.texture.dispose()
+    this.raymarcher.material.dispose()
+    this.target.dispose()
+    this.target.depthTexture.dispose()
+    this.target.texture.dispose()
   }
   onBeforeRender = (renderer: WebGLRenderer, _scene: Scene, camera: Camera) => {
     const sdfLayerSet: Set<SDFLayer> = this.findSdfLayers(this)
@@ -352,9 +344,7 @@ class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
       throw new Error('Camera must be a PerspectiveCamera')
     }
 
-    const {
-      userData: { resolution, raymarcher, target },
-    } = this
+    const { resolution, raymarcher, target } = this
     const {
       material: { defines, uniforms },
     } = raymarcher
@@ -486,18 +476,6 @@ class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
       scale: scale.clone(),
       shape,
     }
-  }
-
-  static getEntityCollider(entity: SDFPrimitive) {
-    // const collider = _colliders[shape]
-    // collider.position.copy(position)
-    // collider.quaternion.setFromEuler(rotation)
-    // collider.scale.copy(scale)
-    // if (shape === Shape.CAPSULE) {
-    //   collider.scale.z = collider.scale.x
-    // }
-    // collider.updateMatrixWorld()
-    return entity
   }
 
   static getLayerBounds(layer: number): Sphere {

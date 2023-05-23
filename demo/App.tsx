@@ -81,32 +81,19 @@ const Scene = () => {
     () => new PMREMGenerator(gl).fromScene(new RoomEnvironment()).texture,
     [gl]
   )
-  const randomize = useCallback((event: ThreeEvent<MouseEvent>) => {
-    // obj.entity.color.setHex(Math.random() * 0xffffff)
-  }, [])
 
   const raymarcherRef = useRef<Raymarcher>(null)
-  const meshRef = useRef<Mesh>(null)
-
-  const frame = useFrame((state, delta) => {
-    if (meshRef.current) {
-      meshRef.current.rotation.y += delta * 0.5
-
-      console.log(meshRef.current.matrixWorld)
-    }
-  })
 
   return (
     <>
       <raymarcher
         ref={raymarcherRef}
-        onClick={randomize}
-        userData-envMap={envMap}
-        userData-envMapIntensity={0.6}
-        userData-roughness={1.0}
-        userData-blending={0.0}
+        envMap={envMap}
+        envMapIntensity={0.6}
+        roughness={1.0}
+        blending={0.5}
       >
-        <sdfLayer ref={meshRef}>
+        <sdfLayer>
           <sdfBox color={'green'} />
           <sdfCapsule
             color={'green'}
