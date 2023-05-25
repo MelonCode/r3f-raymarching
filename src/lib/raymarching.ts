@@ -3,6 +3,7 @@ import {
   Camera,
   CapsuleGeometry,
   Color,
+  ColorRepresentation,
   CubeTexture,
   CylinderGeometry,
   DepthTexture,
@@ -24,7 +25,6 @@ import {
   Sphere,
   SphereGeometry,
   Texture,
-  TextureLoader,
   UnsignedShortType,
   Vector2,
   Vector3,
@@ -38,11 +38,13 @@ import raymarcherVertex from './shaders/raymarcher.vert'
 import screenFragment from './shaders/screen.frag'
 import screenVertex from './shaders/screen.vert'
 
+export interface PBRMaterial {
+  color: Color
+  params: Vector4
+}
+
 export interface Entity {
-  material: {
-    color: Color
-    params: Vector4
-  }
+  materialIndex: number
   operation: number
   position: Vector3
   rotation: Quaternion
@@ -89,15 +91,8 @@ type PrimitiveShapes =
   | IcosahedronGeometry
   | PlaneGeometry
 
-interface PhysicalMaterial {
-  color: Color
-  params: Vector4
-}
 abstract class SDFPrimitive extends Mesh<PrimitiveShapes> {
-  pbr: PhysicalMaterial = {
-    color: new Color(0xaabbcc),
-    params: new Vector4(0.5, 0.5, 0.5, 0.5),
-  }
+  materialIndex: number = 0
   operation: Operation = Operation.UNION
   shape: Shape = Shape.BOX
   override material: MeshBasicMaterial
@@ -108,7 +103,7 @@ abstract class SDFPrimitive extends Mesh<PrimitiveShapes> {
     this.shape = shape
     this.material = new MeshBasicMaterial({
       wireframe: true,
-      color: this.pbr.color.clone(),
+      color: new Color(0xffffff),
       transparent: true,
       opacity: 0.5,
       depthWrite: true,
@@ -150,6 +145,7 @@ class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
   declare material: RawShaderMaterial
   raymarcher: Mesh<PlaneGeometry, RawShaderMaterial>
   target: WebGLRenderTarget
+  materials: Array<PBRMaterial> = []
 
   private get uniforms() {
     return this.raymarcher.material.uniforms
@@ -248,6 +244,7 @@ class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
       defines: {
         CONETRACING: !!conetracing,
         MAX_ENTITIES: 0,
+        MAX_MATERIALS: 0,
         MAX_DISTANCE: '1000.0',
         MAX_ITERATIONS: 500,
         MIN_COVERAGE: '0.02',
@@ -264,13 +261,18 @@ class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
         envMapIntensity: { value: envMapIntensity },
         resolution: { value: new Vector2() },
         numEntities: { value: 0 },
+        materials: {
+          value: [
+            {
+              color: new Color(0xffd700),
+              params: new Vector4(0.5, 0.5, 0.5, 0.5),
+            },
+          ],
+        },
         entities: {
           value: [
             {
-              material: {
-                color: new Color(0xffd700),
-                params: new Vector4(0.5, 0.5, 0.5, 0.5),
-              },
+              materialIndex: 0,
               operation: Operation.UNION,
               position: new Vector3(),
               rotation: new Quaternion(1, 0, 0, 0),
@@ -363,6 +365,17 @@ class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
     )
     camera.getWorldPosition(_position)
 
+    // Update materials
+    if (this.materials.length !== defines.MAX_MATERIALS) {
+      defines.MAX_MATERIALS = this.materials.length
+      uniforms.materials.value = this.materials
+    }
+    this.materials.forEach((material, index) => {
+      const uniform = uniforms.materials.value[index]
+      uniform.color.copy(material.color)
+      uniform.params.copy(material.params)
+    })
+
     // TODO Can we only sort layers when they change?
     const sortedLayers: Array<SortedLayer> = layers
       .reduce((layers, entities, layer) => {
@@ -370,27 +383,23 @@ class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
           defines.MAX_ENTITIES = entities.size
           const value: Array<Entity> = []
           for (const entity of entities) {
-            const c = entity.pbr.color.clone()
+            const pbr = uniforms.materials.value[entity.materialIndex]
             value.push({
               shape: entity.shape,
-              material: {
-                color: c,
-                params: entity.pbr.params.clone(),
-              },
+              materialIndex: entity.materialIndex,
               operation: entity.operation,
               position: entity.getWorldPosition(new Vector3()),
               rotation: entity.getWorldQuaternion(new Quaternion()),
               scale: entity.getWorldScale(new Vector3()),
             })
-
-            console.log(c)
           }
           uniforms.entities.value = value
           raymarcher.material.needsUpdate = true
         }
         const bounds = Raymarcher.getLayerBounds(layer)
         entities.forEach((entity) => {
-          entity.material.color = entity.pbr.color
+          const material = uniforms.materials.value[entity.materialIndex]
+          entity.material.color = new Color(material.color)
           entity.geometry.computeBoundingSphere()
 
           const {
@@ -446,8 +455,7 @@ class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
       let i = 0
       entities.forEach((entity) => {
         const uniform = uniforms.entities.value[i++]
-        uniform.material.color.copy(entity.pbr.color)
-        uniform.material.params.copy(entity.pbr.params)
+        uniform.materialIndex = entity.materialIndex
         uniform.operation = entity.operation
         uniform.shape = entity.shape
         entity.getWorldPosition(uniform.position)

@@ -18,11 +18,13 @@ import THREE, {
   PMREMGenerator,
   Quaternion,
   Vector3,
+  Vector4,
 } from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import Raymarcher, {
   Entity,
   Operation,
+  PBRMaterial,
   SDFBox,
   SDFCapsule,
   SDFLayer,
@@ -56,24 +58,24 @@ declare module '@react-three/fiber' {
   }
 }
 
-function SelectableBox(props) {
-  const ref = useRef<SDFSphere>(null)
-  const [color, setColor] = useState<string>('orangered')
-
-  return (
-    <>
-      <TransformControls object={ref.current!}>
-        <sdfSphere
-          ref={ref}
-          operation={Operation.SUBSTRACTION}
-          color="limegreen"
-          position={[-4.2, 1.6, 1.4]}
-          scale={[0.5, 0.5, 0.5]}
-        />
-      </TransformControls>
-    </>
-  )
-}
+const materials: Array<PBRMaterial> = [
+  {
+    color: new Color('red'),
+    params: new Vector4(1.0, 0.0, 0.0, 0.0),
+  },
+  {
+    color: new Color('green'),
+    params: new Vector4(1.0, 0.0),
+  },
+  {
+    color: new Color('blue'),
+    params: new Vector4(1.0, 0.0, 0.0, 0.0),
+  },
+  {
+    color: new Color('yellow'),
+    params: new Vector4(0.5, 0.75, 0.0, 0.0),
+  },
+]
 
 const Scene = () => {
   const { gl } = useThree()
@@ -88,6 +90,7 @@ const Scene = () => {
 
   const frame = useFrame((state, delta) => {
     if (meshRef.current) {
+      console.log(raymarcherRef.current?.raymarcher?.material?.uniforms)
       // raymarcherRef.current!.blending = Math.max(
       //   Math.cos(state.clock.getElapsedTime()) * 0.75,
       //   0
@@ -106,39 +109,35 @@ const Scene = () => {
         envMap={envMap}
         envMapIntensity={0.6}
         blending={0.0}
+        materials={materials}
       >
         <sdfLayer>
           <sdfBox
-            pbr-color={'red'}
+            materialIndex={0}
             position-x={-0.1}
             scale={[1.2, 1.2, 1.2]}
-            pbr-params={[1.0, 0.0, 0.0, 0.0]}
           />
 
           <sdfSphere
+            materialIndex={1}
             position-x={1.2}
-            pbr-color={'orange'}
-            pbr-params={[0.2, 0.8, 0.0, 0.0]}
           />
           <sdfBox
+            materialIndex={2}
             ref={meshRef}
             rotation-x={Math.PI / 4}
             rotation-y={Math.PI / 4}
             scale-y={1}
             position-x={2.4}
-            pbr-color={'green'}
-            pbr-params={[0.0, 1.0, 0.0, 0.0]}
           />
           <sdfSphere
+            materialIndex={3}
             position-x={3.6}
-            pbr-color={'blue'}
-            pbr-params={[1.0, 0.0, 0.0, 0.0]}
           />
           <sdfCapsule
+            materialIndex={1}
             scale-y={2}
             position-x={4.8}
-            pbr-color={'purple'}
-            pbr-params={[0.0, 0.0, 0.0, 0.0]}
           />
         </sdfLayer>
       </raymarcher>

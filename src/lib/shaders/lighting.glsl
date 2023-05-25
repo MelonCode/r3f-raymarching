@@ -14,6 +14,8 @@ struct PhysicalMaterial {
   vec4 params;
 };
 
+uniform PhysicalMaterial materials[MAX_MATERIALS];
+
 const float SPECULAR_f90 = 1.0;
 
 struct ReflectedLight {

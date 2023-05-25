@@ -32,7 +32,7 @@ uniform float roughness;
 
 
 struct Entity {
-  PhysicalMaterial material;
+  int materialIndex;
   int operation;
   vec3 position;
   vec4 rotation;
@@ -123,7 +123,8 @@ SDF sdEntity(in vec3 p, const in Entity e) {
       distance = sdEllipsoid(p, e.scale * 0.5);
       break;
   }
-  return SDF(distance, e.material);
+  PhysicalMaterial material = materials[e.materialIndex];
+  return SDF(distance, material);
 }
 
 // TODO Distance only functions for better performance on lighting
@@ -142,7 +143,7 @@ SDF opSmoothSubtraction(const in SDF a, const in SDF b, const in float k) {
   float h = saturate(0.5 - 0.5 * (a.distance + b.distance) / k);
   return SDF(
     mix(a.distance, -b.distance, h) + k * h * (1.0 - h),
-    mix(a.material, b.material, h)
+    a.material
   );
 }
 
@@ -150,7 +151,7 @@ SDF opSmoothIntersection(const in SDF a, const in SDF b, const in float k) {
   float h = saturate(0.5 + 0.5 * (b.distance - a.distance) / k);
   return SDF(
     mix(a.distance, b.distance, h) + k * h * (1.0 - h),
-    mix(a.material, b.material, h)
+    a.material
   );
 }
 
