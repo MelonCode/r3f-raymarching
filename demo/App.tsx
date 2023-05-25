@@ -84,21 +84,61 @@ const Scene = () => {
 
   const raymarcherRef = useRef<Raymarcher>(null)
 
+  const meshRef = useRef<Mesh>(null)
+
+  const frame = useFrame((state, delta) => {
+    if (meshRef.current) {
+      // raymarcherRef.current!.blending = Math.max(
+      //   Math.cos(state.clock.getElapsedTime()) * 0.75,
+      //   0
+      // )
+      // meshRef.current.rotation.y += delta
+      // meshRef.current.rotation.x += delta
+    }
+  })
+
+  console.log(raymarcherRef)
+
   return (
     <>
       <raymarcher
         ref={raymarcherRef}
         envMap={envMap}
         envMapIntensity={0.6}
-        roughness={1.0}
-        blending={0.5}
+        blending={0.0}
       >
         <sdfLayer>
-          <sdfBox color={'green'} />
+          <sdfBox
+            pbr-color={'red'}
+            position-x={-0.1}
+            scale={[1.2, 1.2, 1.2]}
+            pbr-params={[1.0, 0.0, 0.0, 0.0]}
+          />
+
+          <sdfSphere
+            position-x={1.2}
+            pbr-color={'orange'}
+            pbr-params={[0.2, 0.8, 0.0, 0.0]}
+          />
+          <sdfBox
+            ref={meshRef}
+            rotation-x={Math.PI / 4}
+            rotation-y={Math.PI / 4}
+            scale-y={1}
+            position-x={2.4}
+            pbr-color={'green'}
+            pbr-params={[0.0, 1.0, 0.0, 0.0]}
+          />
+          <sdfSphere
+            position-x={3.6}
+            pbr-color={'blue'}
+            pbr-params={[1.0, 0.0, 0.0, 0.0]}
+          />
           <sdfCapsule
-            color={'green'}
-            position-x={1}
             scale-y={2}
+            position-x={4.8}
+            pbr-color={'purple'}
+            pbr-params={[0.0, 0.0, 0.0, 0.0]}
           />
         </sdfLayer>
       </raymarcher>

@@ -24,9 +24,11 @@ import {
   Sphere,
   SphereGeometry,
   Texture,
+  TextureLoader,
   UnsignedShortType,
   Vector2,
   Vector3,
+  Vector4,
   WebGLRenderTarget,
   WebGLRenderer,
 } from 'three'
@@ -37,7 +39,10 @@ import screenFragment from './shaders/screen.frag'
 import screenVertex from './shaders/screen.vert'
 
 export interface Entity {
-  color: Color
+  material: {
+    color: Color
+    params: Vector4
+  }
   operation: number
   position: Vector3
   rotation: Quaternion
@@ -84,8 +89,15 @@ type PrimitiveShapes =
   | IcosahedronGeometry
   | PlaneGeometry
 
+interface PhysicalMaterial {
+  color: Color
+  params: Vector4
+}
 abstract class SDFPrimitive extends Mesh<PrimitiveShapes> {
-  color: Color = new Color(0xffffff)
+  pbr: PhysicalMaterial = {
+    color: new Color(0xaabbcc),
+    params: new Vector4(0.5, 0.5, 0.5, 0.5),
+  }
   operation: Operation = Operation.UNION
   shape: Shape = Shape.BOX
   override material: MeshBasicMaterial
@@ -96,7 +108,7 @@ abstract class SDFPrimitive extends Mesh<PrimitiveShapes> {
     this.shape = shape
     this.material = new MeshBasicMaterial({
       wireframe: true,
-      color: this.color,
+      color: this.pbr.color.clone(),
       transparent: true,
       opacity: 0.5,
       depthWrite: true,
@@ -157,7 +169,7 @@ class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
   }
   set conetracing(value) {
     if (this.defines.CONETRACING !== !!value) {
-      this.raymarcher.material.defines.CONETRACING = !!value
+      this.defines.CONETRACING = !!value
       this.raymarcher.material.transparent = this.material.transparent = !!value
       this.raymarcher.material.needsUpdate = true
     }
@@ -195,27 +207,13 @@ class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
   set envMapIntensity(value) {
     this.uniforms.envMapIntensity.value = value
   }
-  get metalness() {
-    return this.uniforms.metalness.value
-  }
-  set metalness(value) {
-    this.uniforms.metalness.value = value
-  }
-  get roughness() {
-    return this.uniforms.roughness.value
-  }
-  set roughness(value) {
-    this.uniforms.roughness.value = value
-  }
 
   constructor({
     blending = 0.5,
     envMap = null,
     conetracing = true,
     envMapIntensity = 1,
-    metalness = 0,
     resolution = 1,
-    roughness = 1,
   } = {}) {
     const plane = new PlaneGeometry(2, 2, 1, 1)
     plane.deleteAttribute('normal')
@@ -238,6 +236,7 @@ class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
     super(plane, screenMaterial)
 
     this.target = target
+
     const material = new RawShaderMaterial({
       glslVersion: GLSL3,
       transparent: !!conetracing,
@@ -252,7 +251,7 @@ class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
         MAX_DISTANCE: '1000.0',
         MAX_ITERATIONS: 500,
         MIN_COVERAGE: '0.02',
-        MIN_DISTANCE: '0.05',
+        MIN_DISTANCE: '0.001',
       },
       uniforms: {
         blending: { value: blending },
@@ -263,14 +262,15 @@ class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
         cameraNear: { value: 0 },
         envMap: { value: null },
         envMapIntensity: { value: envMapIntensity },
-        metalness: { value: metalness },
         resolution: { value: new Vector2() },
-        roughness: { value: roughness },
         numEntities: { value: 0 },
         entities: {
           value: [
             {
-              color: new Vector3(),
+              material: {
+                color: new Color(0xffd700),
+                params: new Vector4(0.5, 0.5, 0.5, 0.5),
+              },
               operation: Operation.UNION,
               position: new Vector3(),
               rotation: new Quaternion(1, 0, 0, 0),
@@ -331,6 +331,7 @@ class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
     this.target.depthTexture.dispose()
     this.target.texture.dispose()
   }
+
   onBeforeRender = (renderer: WebGLRenderer, _scene: Scene, camera: Camera) => {
     const sdfLayerSet: Set<SDFLayer> = this.findSdfLayers(this)
 
@@ -365,28 +366,33 @@ class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
     // TODO Can we only sort layers when they change?
     const sortedLayers: Array<SortedLayer> = layers
       .reduce((layers, entities, layer) => {
-        if (defines.MAX_ENTITIES < entities.size) {
+        if (defines.MAX_ENTITIES !== entities.size) {
           defines.MAX_ENTITIES = entities.size
-
           const value: Array<Entity> = []
           for (const entity of entities) {
+            const c = entity.pbr.color.clone()
             value.push({
-              color: entity.color,
+              shape: entity.shape,
+              material: {
+                color: c,
+                params: entity.pbr.params.clone(),
+              },
               operation: entity.operation,
               position: entity.getWorldPosition(new Vector3()),
               rotation: entity.getWorldQuaternion(new Quaternion()),
               scale: entity.getWorldScale(new Vector3()),
-              shape: entity.shape,
             })
+
+            console.log(c)
           }
           uniforms.entities.value = value
           raymarcher.material.needsUpdate = true
         }
         const bounds = Raymarcher.getLayerBounds(layer)
         entities.forEach((entity) => {
-          entity.material.color = entity.color
-
+          entity.material.color = entity.pbr.color
           entity.geometry.computeBoundingSphere()
+
           const {
             geometry: { boundingSphere },
             matrixWorld,
@@ -440,7 +446,8 @@ class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
       let i = 0
       entities.forEach((entity) => {
         const uniform = uniforms.entities.value[i++]
-        uniform.color.copy(entity.color)
+        uniform.material.color.copy(entity.pbr.color)
+        uniform.material.params.copy(entity.pbr.params)
         uniform.operation = entity.operation
         uniform.shape = entity.shape
         entity.getWorldPosition(uniform.position)
@@ -449,7 +456,6 @@ class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
       })
       renderer.render(raymarcher, camera)
     })
-
     renderer.autoClear = currentAutoClear
     renderer.shadowMap.autoUpdate = currentShadowAutoUpdate
     renderer.xr.enabled = currentXrEnabled
@@ -458,24 +464,6 @@ class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
 
     // What is this for?
     // if (camera.viewport) renderer.state.viewport(camera.viewport)
-  }
-
-  static cloneEntity({
-    color,
-    operation,
-    position,
-    rotation,
-    scale,
-    shape,
-  }: Entity): Entity {
-    return {
-      color: color.clone(),
-      operation,
-      position: position.clone(),
-      rotation: rotation.clone(),
-      scale: scale.clone(),
-      shape,
-    }
   }
 
   static getLayerBounds(layer: number): Sphere {

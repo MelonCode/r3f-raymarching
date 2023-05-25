@@ -9,11 +9,12 @@ struct GeometricContext {
 };
 
 struct PhysicalMaterial {
-  vec3 diffuseColor;
-  float roughness;
-  vec3 specularColor;
-  float specularF90;
+  vec3 color;
+  // 0: roughness, 1: metalness
+  vec4 params;
 };
+
+const float SPECULAR_f90 = 1.0;
 
 struct ReflectedLight {
   vec3 indirectDiffuse;
@@ -45,16 +46,18 @@ void computeMultiscattering(const in vec3 normal, const in vec3 viewDir, const i
   multiScatter += Fms * Ems;
 }
 
-void RE_IndirectDiffuse(const in vec3 irradiance, const in GeometricContext geometry, const in PhysicalMaterial material, inout ReflectedLight reflectedLight) {
-  reflectedLight.indirectDiffuse += irradiance * BRDF_Lambert(material.diffuseColor);
+void RE_IndirectDiffuse(const in vec3 irradiance, const in GeometricContext geometry, const in vec3 diffuseColor, inout ReflectedLight reflectedLight) {
+  reflectedLight.indirectDiffuse += irradiance * BRDF_Lambert(diffuseColor);
 }
 
-void RE_IndirectSpecular(const in vec3 radiance, const in vec3 irradiance, const in GeometricContext geometry, const in PhysicalMaterial material, inout ReflectedLight reflectedLight) {
+void RE_IndirectSpecular(const in vec3 radiance, const in vec3 irradiance, const in GeometricContext geometry, const in PhysicalMaterial material, const in vec3 specularColor, const in vec3 diffuseColor, inout ReflectedLight reflectedLight) {
   vec3 singleScattering = vec3(0.0);
   vec3 multiScattering = vec3(0.0);
   vec3 cosineWeightedIrradiance = irradiance * RECIPROCAL_PI;
-  computeMultiscattering(geometry.normal, geometry.viewDir, material.specularColor, material.specularF90, material.roughness, singleScattering, multiScattering);
-  vec3 diffuse = material.diffuseColor * (1.0 - (singleScattering + multiScattering));
+
+  float materialRoughness = material.params.x;
+  computeMultiscattering(geometry.normal, geometry.viewDir, specularColor, SPECULAR_f90, materialRoughness, singleScattering, multiScattering);
+  vec3 diffuse = diffuseColor * (1.0 - (singleScattering + multiScattering));
   reflectedLight.indirectSpecular += radiance * singleScattering;
   reflectedLight.indirectSpecular += multiScattering * cosineWeightedIrradiance;
   reflectedLight.indirectDiffuse += diffuse * cosineWeightedIrradiance;
@@ -72,30 +75,31 @@ vec3 getIBLIrradiance(const in vec3 normal) {
   return PI * envMapColor * envMapIntensity;
 }
 
-vec3 getLight(const in vec3 position, const in vec3 normal, const in vec3 diffuse) {
+vec3 getLight(const in vec3 position, const in vec3 normal, const in PhysicalMaterial material) {
   GeometricContext geometry;
   geometry.normal = normal;
   geometry.viewDir = normalize(cameraPosition - position);
 
-  PhysicalMaterial material;
-  material.diffuseColor = diffuse * (1.0 - metalness);
-  material.roughness = max(min(roughness, 1.0), 0.0525);
-  material.specularColor = mix(vec3(0.04), diffuse, metalness);
-  material.specularF90 = 1.0;
+  float materialRoughness = material.params.x;
+  float materialMetalness = material.params.y;
+
+  float roughness = max(min(materialRoughness, 1.0), 0.0525);
+  vec3 diffuseColor = material.color * (1.0 - materialMetalness);
+  vec3 specularColor = mix(vec3(0.04), material.color, materialMetalness);
 
   ReflectedLight reflectedLight = ReflectedLight(vec3(0.0), vec3(0.0));
-  vec3 radiance = getIBLRadiance(geometry.viewDir, geometry.normal, material.roughness);
+  vec3 radiance = getIBLRadiance(geometry.viewDir, geometry.normal, roughness);
   vec3 irradiance = getIBLIrradiance(geometry.normal);
-  RE_IndirectDiffuse(irradiance, geometry, material, reflectedLight);
-  RE_IndirectSpecular(radiance, irradiance, geometry, material, reflectedLight);
+  RE_IndirectDiffuse(irradiance, geometry, diffuseColor, reflectedLight);
+  RE_IndirectSpecular(radiance, irradiance, geometry, material, specularColor, diffuseColor, reflectedLight);
 
   return reflectedLight.indirectDiffuse + reflectedLight.indirectSpecular;
 }
 
 #else
 
-vec3 getLight(const in vec3 position, const in vec3 normal, const in vec3 diffuse) {
-  return diffuse * envMapIntensity;
+vec3 getLight(const in vec3 position, const in vec3 normal, const in PhysicalMaterial material) {
+  return material.color * envMapIntensity;
 }
 
 #endif

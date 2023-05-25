@@ -1,35 +1,20 @@
 precision highp float;
 precision highp int;
+out vec4 fragColor;
+in vec3 ray;
+uniform float blending;
 
 struct Bounds {
   vec3 center;
   float radius;
 };
 
-struct Entity {
-  vec3 color;
-  int operation;
-  vec3 position;
-  vec4 rotation;
-  vec3 scale;
-  int shape;
-};
-
-struct SDF {
-  float distance;
-  vec3 color;
-};
-
-out vec4 fragColor;
-in vec3 ray;
-uniform float blending;
 uniform Bounds bounds;
 uniform vec3 cameraDirection;
 uniform float cameraFar;
 uniform float cameraFov;
 uniform float cameraNear;
 uniform vec3 cameraPosition;
-uniform Entity entities[MAX_ENTITIES];
 uniform sampler2D envMap;
 uniform float envMapIntensity;
 uniform float metalness;
@@ -44,6 +29,24 @@ uniform float roughness;
 #include <cube_uv_reflection_fragment>
 #include <encodings_pars_fragment>
 #include <lighting>
+
+
+struct Entity {
+  PhysicalMaterial material;
+  int operation;
+  vec3 position;
+  vec4 rotation;
+  vec3 scale;
+  int shape;
+};
+
+uniform Entity entities[MAX_ENTITIES];
+
+struct SDF {
+  float distance;
+  PhysicalMaterial material;
+};
+
 
 // Sign function that doesn't return 0
 // float sgn(float x) {
@@ -78,6 +81,7 @@ uniform float roughness;
 // float vmin(vec4 v) {
 // 	return min(min(v.x, v.y), min(v.z, v.w));
 // }
+
 
 
 vec3 applyQuaternion(const in vec3 p, const in vec4 q) {
@@ -119,30 +123,34 @@ SDF sdEntity(in vec3 p, const in Entity e) {
       distance = sdEllipsoid(p, e.scale * 0.5);
       break;
   }
-  return SDF(distance, e.color);
+  return SDF(distance, e.material);
 }
 
+// TODO Distance only functions for better performance on lighting
 SDF opSmoothUnion(const in SDF a, const in SDF b, const in float k) {
   float h = saturate(0.5 + 0.5 * (b.distance - a.distance) / k);
   return SDF(
     mix(b.distance, a.distance, h) - k*h*(1.0-h),
-    mix(b.color, a.color, h)
+    PhysicalMaterial(
+      mix(b.material.color, a.material.color, h),
+      mix(b.material.params, a.material.params, h)
+    )
   );
 }
 
 SDF opSmoothSubtraction(const in SDF a, const in SDF b, const in float k) {
   float h = saturate(0.5 - 0.5 * (a.distance + b.distance) / k);
   return SDF(
-    mix(a.distance, -b.distance, h) + k*h*(1.0-h),
-    mix(a.color, b.color, h)
+    mix(a.distance, -b.distance, h) + k * h * (1.0 - h),
+    mix(a.material, b.material, h)
   );
 }
 
 SDF opSmoothIntersection(const in SDF a, const in SDF b, const in float k) {
   float h = saturate(0.5 + 0.5 * (b.distance - a.distance) / k);
   return SDF(
-    mix(a.distance, b.distance, h) + k*h*(1.0-h),
-    mix(a.color, b.color, h)
+    mix(a.distance, b.distance, h) + k * h * (1.0 - h),
+    mix(a.material, b.material, h)
   );
 }
 
@@ -194,7 +202,8 @@ void march(inout vec4 color, inout float distance) {
           closest = distance;
         }
         float alpha = smoothstep(cone, -cone, step.distance);
-        vec3 pixel = getLight(position, getNormal(position, step.distance), step.color);
+        vec3 normal = getNormal(position, step.distance);
+        vec3 pixel = getLight(position, normal, step.material);
         color.rgb += coverage * (alpha * pixel);
         coverage *= (1.0 - alpha);
         if (coverage <= MIN_COVERAGE) {
@@ -217,7 +226,7 @@ void march(inout vec4 color, inout float distance) {
     } else {
       SDF step = map(position);
       if (step.distance <= MIN_DISTANCE) {
-        color = vec4(getLight(position, getNormal(position, step.distance), step.color), 1.0);
+        color = vec4(getLight(position, getNormal(position, step.distance), step.material), 1.0);
         break;
       }
       distance += step.distance;
