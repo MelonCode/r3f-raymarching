@@ -90,13 +90,16 @@ const Scene = () => {
 
   const frame = useFrame((state, delta) => {
     if (meshRef.current) {
-      console.log(raymarcherRef.current?.raymarcher?.material?.uniforms)
+      // console.log(raymarcherRef.current?.raymarcher?.material?.uniforms)
       // raymarcherRef.current!.blending = Math.max(
       //   Math.cos(state.clock.getElapsedTime()) * 0.75,
       //   0
       // )
       // meshRef.current.rotation.y += delta
-      // meshRef.current.rotation.x += delta
+      meshRef.current.blending = Math.max(
+        Math.cos(state.clock.getElapsedTime()),
+        0
+      )
     }
   })
 

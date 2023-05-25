@@ -46,10 +46,11 @@ export interface PBRMaterial {
 export interface Entity {
   materialIndex: number
   operation: number
+  shape: number
+  blending: number
   position: Vector3
   rotation: Quaternion
   scale: Vector3
-  shape: number
 }
 
 export interface Layer extends Array<Entity> {}
@@ -95,6 +96,7 @@ abstract class SDFPrimitive extends Mesh<PrimitiveShapes> {
   materialIndex: number = 0
   operation: Operation = Operation.UNION
   shape: Shape = Shape.BOX
+  blending = 0
   override material: MeshBasicMaterial
 
   constructor(shape: number, geometry: PrimitiveShapes) {
@@ -154,12 +156,6 @@ class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
     return this.raymarcher.material.defines
   }
 
-  get blending() {
-    return this.raymarcher.material.uniforms.blending.value
-  }
-  set blending(value) {
-    this.uniforms.blending.value = value
-  }
   get conetracing() {
     return this.defines.CONETRACING
   }
@@ -205,7 +201,6 @@ class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
   }
 
   constructor({
-    blending = 0.5,
     envMap = null,
     conetracing = true,
     envMapIntensity = 1,
@@ -251,7 +246,6 @@ class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
         MIN_DISTANCE: '0.001',
       },
       uniforms: {
-        blending: { value: blending },
         bounds: { value: { center: new Vector3(), radius: 0 } },
         cameraDirection: { value: new Vector3() },
         cameraFar: { value: 0 },
@@ -383,11 +377,11 @@ class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
           defines.MAX_ENTITIES = entities.size
           const value: Array<Entity> = []
           for (const entity of entities) {
-            const pbr = uniforms.materials.value[entity.materialIndex]
             value.push({
               shape: entity.shape,
               materialIndex: entity.materialIndex,
               operation: entity.operation,
+              blending: entity.blending,
               position: entity.getWorldPosition(new Vector3()),
               rotation: entity.getWorldQuaternion(new Quaternion()),
               scale: entity.getWorldScale(new Vector3()),
@@ -457,6 +451,7 @@ class Raymarcher extends Mesh<PlaneGeometry, RawShaderMaterial> {
         const uniform = uniforms.entities.value[i++]
         uniform.materialIndex = entity.materialIndex
         uniform.operation = entity.operation
+        uniform.blending = entity.blending
         uniform.shape = entity.shape
         entity.getWorldPosition(uniform.position)
         entity.getWorldQuaternion(uniform.rotation)

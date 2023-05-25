@@ -37,6 +37,7 @@ struct Entity {
   vec3 position;
   vec4 rotation;
   vec3 scale;
+  float blending;
   int shape;
 };
 
@@ -158,16 +159,17 @@ SDF opSmoothIntersection(const in SDF a, const in SDF b, const in float k) {
 SDF map(const in vec3 p) {
   SDF scene = sdEntity(p, entities[0]);
   for (int i = 1, l = min(numEntities, MAX_ENTITIES); i < l; i++) {
-    switch (entities[i].operation) {
+    Entity e = entities[i];
+    switch (e.operation) {
       default:
       case 0:
-        scene = opSmoothUnion(scene, sdEntity(p, entities[i]), blending);
+        scene = opSmoothUnion(scene, sdEntity(p, e), e.blending);
         break;
       case 1:
-        scene = opSmoothSubtraction(scene, sdEntity(p, entities[i]), blending);
+        scene = opSmoothSubtraction(scene, sdEntity(p, e), e.blending);
         break;
       case 2:
-        scene = opSmoothIntersection(scene, sdEntity(p, entities[i]), blending);
+        scene = opSmoothIntersection(scene, sdEntity(p, e), e.blending);
         break;
     }
   }
